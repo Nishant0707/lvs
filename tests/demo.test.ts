@@ -125,11 +125,22 @@ function createMedia() {
   const audio = createTrack("audio");
   const video = createTrack("video");
 
-  const stream = {
-    getTracks: () => [audio, video],
-    getAudioTracks: () => [audio],
-    getVideoTracks: () => [video],
-  } as unknown as MediaStream;
+  const stream = new MediaStream();
+
+  Object.defineProperties(stream, {
+    getTracks: {
+      configurable: true,
+      value: () => [audio, video],
+    },
+    getAudioTracks: {
+      configurable: true,
+      value: () => [audio],
+    },
+    getVideoTracks: {
+      configurable: true,
+      value: () => [video],
+    },
+  });
 
   return { audio, video, stream };
 }
