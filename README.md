@@ -1,8 +1,12 @@
 # LVS Live Platform
 
-**Updated video-call edition:** read [START_HERE.md](START_HERE.md). Custom calls are at `/call.html`; the LiveKit studio remains at `/`.
+# Time Spend Around 12 Hours Total
 
-A TypeScript backend for the LVS Innovation live-streaming and group-voice assignment, with a small browser demo for real media connections.
+# Nishant Gautam
+# +91-9990058270
+# ngautam535@gmail.com
+# Portfolio - https://nishantportfolio.in/
+
 
 **Stack:** Node.js 22, Express 5, TypeScript, MongoDB/Mongoose, Redis, Socket.IO, LiveKit, Docker Compose, GitHub Actions. The lockfile pins the resolved npm dependency tree.
 
@@ -11,7 +15,6 @@ A TypeScript backend for the LVS Innovation live-streaming and group-voice assig
 Install Node.js 22 if running outside Docker, plus Docker Desktop with Linux containers (Windows/macOS) or Docker Engine + Compose (Linux).
 
 ```bash
-cp .env.example .env
 docker compose --profile media up --build -d
 docker compose ps
 ```
@@ -38,13 +41,8 @@ npm run dev
 
 Use `.env.example` defaults for host-run Mongo/Redis/LiveKit. For **webhooks** with a host-run API, change `deploy/livekit.yaml` URL to `http://host.docker.internal:4000/webhooks/livekit` (Docker Desktop); on Linux add the appropriate host-gateway mapping. Restart LiveKit. Alternatively run the full Compose stack so the built-in `http://backend:4000` webhook URL resolves.
 
-## Use LiveKit Cloud
 
-Set `LIVEKIT_URL=wss://YOUR_PROJECT.livekit.cloud`, `LIVEKIT_API_URL=https://YOUR_PROJECT.livekit.cloud`, and your API key/secret in `.env`. For containerized API, remove the fixed `LIVEKIT_API_URL` override from local `docker-compose.yml` or replace it with your Cloud API URL. Start `docker compose up --build -d` without the media profile. Register `/webhooks/livekit` as a public HTTPS webhook endpoint in your own LiveKit project. Never send API secrets to the browser.
 
-## API
-
-Successful responses use `{success:true,data:...}`. Errors use `{success:false,error:{code,message,details?}}`. Authentication is `Authorization: Bearer <JWT>`. User registration/login returns a one-hour app JWT. LiveKit tokens are separate and scoped to one room.
 
 | Method | Route                    | Purpose                                                       |
 | ------ | ------------------------ | ------------------------------------------------------------- |
@@ -69,16 +67,12 @@ Successful responses use `{success:true,data:...}`. Errors use `{success:false,e
 {
   "success": true,
   "data": {
-    "token": "LIVEKIT_JWT",
     "serverUrl": "ws://localhost:7880",
     "roomName": "room-UUID",
     "role": "participant",
     "expiresIn": 120
   }
 }
-```
-
-Import [OpenAPI](docs/openapi.json) into Postman/Swagger Editor. See [socket contract](docs/SOCKETS.md) for the mandatory real-time events and reconnect behavior. The API does not accept a caller-selected host ID or privileged role. Errors distinguish validation (400), unauthenticated (401), forbidden (403), missing room (404), conflicts/capacity (409), limits (429), and failed media cleanup (503).
 
 ## Tests and quality checks
 
