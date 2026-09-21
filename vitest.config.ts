@@ -1,0 +1,2 @@
+import {defineConfig} from 'vitest/config';
+export default defineConfig({test:{testTimeout:15000,hookTimeout:120000,fileParallelism:false,env:{NODE_ENV:'test',MONGODB_URI:process.env.TEST_MONGODB_URI??'mongodb://127.0.0.1:27017/lvs_test',REDIS_URL:process.env.TEST_REDIS_URL??'redis://127.0.0.1:6379/15',JWT_SECRET:'test-only-secret-with-more-than-32-characters',CORS_ORIGINS:'http://localhost:4000',LIVEKIT_URL:'ws://localhost:7880',LIVEKIT_API_URL:'http://localhost:7880',LIVEKIT_API_KEY:'devkey',LIVEKIT_API_SECRET:'secret',LOG_LEVEL:'silent'}}});

@@ -1,0 +1,112 @@
+name: Build, test, and prepare deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mongo:
+        image: mongo:7.0
+        ports:
+          - "27017:27017"
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      PORT: "4000"
+      MONGOMS_DISABLE_POSTINSTALL: "1"
+      MONGODB_URI: mongodb://127.0.0.1:27017/lvs_test
+      TEST_MONGODB_URI: mongodb://127.0.0.1:27017/lvs_test
+      REDIS_URL: redis://127.0.0.1:6379/15
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+      JWT_SECRET: ci-only-test-secret-not-for-production-123456789
+      CORS_ORIGINS: http://localhost:4000,http://127.0.0.1:4000
+      LOG_LEVEL: silent
+      TRUST_PROXY: "0"
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build backend and frontend
+        run: npm run build
+
+      - name: Unit and frontend tests
+        run: npm test
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Realtime tests
+        run: npm run test:realtime
+
+      - name: Validate Docker Compose
+        shell: bash
+        run: |
+          cat > .env <<'EOF'
+          NODE_ENV=development
+          PORT=4000
+          MONGODB_URI=mongodb://mongo:27017/lvs_live
+          REDIS_URL=redis://redis:6379
+          JWT_SECRET=ci-only-test-secret-not-for-production-123456789
+          CORS_ORIGINS=http://localhost:4000,http://127.0.0.1:4000
+          LOG_LEVEL=info
+          TRUST_PROXY=0
+          EOF
+          docker compose config --quiet
+
+      - name: Build deployment image
+        env:
+          IMAGE_TAG: lvs-live:${{ github.sha }}
+        run: docker build -t "$IMAGE_TAG" .
+
+      - name: Export image for deployment
+        env:
+          IMAGE_TAG: lvs-live:${{ github.sha }}
+        run: docker save "$IMAGE_TAG" | gzip > lvs-live-image.tar.gz
+
+      - name: Upload deployment image
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-image-${{ github.sha }}
+          path: lvs-live-image.tar.gz
+          retention-days: 3
+          if-no-files-found: error

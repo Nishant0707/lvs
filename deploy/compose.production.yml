@@ -1,0 +1,25 @@
+# Standalone production API example; use private managed MongoDB / Redis and LiveKit Cloud.
+name: lvs-live-production
+services:
+  backend:
+    image: ${APP_IMAGE:?Set APP_IMAGE to a tested image tag or digest}
+    init: true
+    restart: unless-stopped
+    env_file: ../.env.production
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      NODE_ENV: production
+      TRUST_PROXY: 1
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

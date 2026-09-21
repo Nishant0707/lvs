@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LVS / Live Studio</title>
+    <link rel="stylesheet" href="/style.css?v=2" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/"
+        >◉ <strong>LVS</strong><span>LIVE STUDIO</span></a
+      ><a class="version" href="/call.html">OPEN CUSTOM VIDEO CALLS →</a
+      ><span id="status" class="pill">Not signed in</span>
+    </header>
+    <main>
+      <section class="intro">
+        <div>
+          <p class="eyebrow">GOOD CONVERSATIONS START HERE</p>
+          <h1>Your people.<br />Your space. <em>Live.</em></h1>
+          <p class="intro-copy">
+            Drop into a voice room or start your own broadcast.<br />One click
+            to join. You choose when to unmute.
+          </p>
+        </div>
+        <div class="intro-art" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span
+          ><span></span><span></span><span></span><span></span><span></span
+          ><span></span><span></span>
+        </div>
+      </section>
+      <div id="error" class="notice" role="alert" hidden></div>
+      <div class="workspace">
+        <aside>
+          <section class="card">
+            <div class="section-label">
+              <span>01 / ACCOUNT</span><span class="tiny-dot"></span>
+            </div>
+            <h2>Welcome in.</h2>
+            <p class="muted">Sign in to find your next conversation.</p>
+            <form id="auth-form">
+              <label
+                >Name <span>(for registration)</span
+                ><input
+                  id="name"
+                  autocomplete="name"
+                  placeholder="Your name"
+                  maxlength="80" /></label
+              ><label
+                >Email<input
+                  id="email"
+                  type="email"
+                  autocomplete="username"
+                  required
+                  placeholder="you@example.com" /></label
+              ><label
+                >Password<input
+                  id="password"
+                  type="password"
+                  autocomplete="current-password"
+                  minlength="10"
+                  maxlength="72"
+                  required
+                  placeholder="At least 10 characters"
+              /></label>
+              <div class="button-row">
+                <button id="signin" type="submit">Sign in →</button
+                ><button id="register" type="button" class="secondary">
+                  Register
+                </button>
+              </div>
+            </form>
+            <div id="account-panel" hidden>
+              <div id="avatar" class="avatar">U</div>
+              <strong id="account-name"></strong>
+              <p id="account" class="muted"></p>
+              <button id="logout" class="secondary">Sign out</button>
+            </div>
+          </section>
+          <section class="card create-card">
+            <div class="section-label">02 / YOUR NEXT ROOM</div>
+            <h2>Make some space.</h2>
+            <form id="create-form">
+              <label
+                >Room name<input
+                  id="room-name"
+                  placeholder="The conversation lounge"
+                  minlength="2"
+                  maxlength="100"
+                  required /></label
+              ><label
+                >Room type<select id="mode">
+                  <option value="voice">Group voice · everyone speaks</option>
+                  <option value="stream">Live stream · host broadcasts</option>
+                </select></label
+              ><button id="create" type="submit" disabled>
+                Create & join →
+              </button>
+            </form>
+            <p class="small">
+              Joining connects your media automatically. Your microphone starts
+              muted.
+            </p>
+          </section>
+        </aside>
+        <div class="main-column">
+          <section class="card live-card">
+            <div class="section-label">
+              <span>03 / ON AIR</span
+              ><span id="media-pill" class="pill">No room selected</span>
+            </div>
+            <div class="room-heading">
+              <h2 id="current-room">Your room is waiting.</h2>
+              <span id="count" class="count">0 members</span>
+            </div>
+            <p id="room-description" class="muted">
+              Create a room or choose one below to get started.
+            </p>
+            <div class="steps" aria-label="Connection progress">
+              <span id="step-room">1. Join room</span
+              ><span id="step-media">2. Connect media</span
+              ><span id="step-ready">3. Ready to speak</span>
+            </div>
+            <div class="stage">
+              <div id="empty-stage">
+                <div class="soundmark" aria-hidden="true">▂ ▅ █ ▃ ▆</div>
+                <h3 id="stage-title">A little quiet, for now.</h3>
+                <p id="media-status">
+                  Choose a room. We’ll handle the connection.
+                </p>
+              </div>
+              <div id="media"></div>
+            </div>
+            <div id="connection-help" class="help" hidden>
+              <strong>Let’s get you connected.</strong>
+              <p id="connection-detail"></p>
+              <p>If LiveKit is running locally, check it with:</p>
+              <code>docker compose --profile media up -d livekit</code>
+              <p>
+                Then click Retry connection. Token errors and media errors are
+                reported separately above.
+              </p>
+            </div>
+            <div class="controls">
+              <button id="mic" disabled>Microphone off</button
+              ><button id="camera" class="secondary" disabled>Camera off</button
+              ><button id="audio" class="secondary" hidden>Enable sound</button
+              ><button id="connect-media" class="secondary" disabled>
+                Retry connection</button
+              ><button id="leave" class="secondary" disabled>Leave</button
+              ><button id="end" class="danger" hidden>End room</button>
+            </div>
+            <p id="permission-hint" class="small">
+              Microphone controls unlock when the media connection is ready.
+            </p>
+            <details class="chat-panel" open>
+              <summary>Room chat <span>LIVE</span></summary>
+              <div id="messages" aria-live="polite">
+                <p class="chat-empty">Say hello to the room.</p>
+              </div>
+              <form id="message-form" class="message-form">
+                <input
+                  id="message"
+                  placeholder="Write a message…"
+                  maxlength="1000"
+                  required
+                  disabled
+                /><button id="send" disabled>Send →</button>
+              </form>
+            </details>
+          </section>
+          <section class="card">
+            <div class="list-heading">
+              <div>
+                <div class="section-label">04 / DISCOVER</div>
+                <h2>Open rooms</h2>
+              </div>
+              <button id="refresh" class="secondary" disabled>Refresh ↻</button>
+            </div>
+            <div id="rooms">
+              <div class="empty-list">Sign in to discover active rooms.</div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <details class="diagnostics">
+        <summary>
+          Connection details & event log <span>FOR YOUR DEMO</span>
+        </summary>
+        <p>
+          Room messages and connection stages appear here. Access tokens are
+          never displayed.
+        </p>
+        <pre id="events" aria-live="polite">Waiting for you to sign in.</pre>
+      </details>
+      <footer>
+        LVS LIVE STUDIO <span>Built for conversations that matter.</span>
+      </footer>
+    </main>
+    <script src="/app.js?v=2" defer></script>
+  </body>
+</html>

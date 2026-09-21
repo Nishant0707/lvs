@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#17191e" />
+    <title>LVS Meet</title>
+    <link rel="stylesheet" href="/call.css?v=3" />
+  </head>
+
+  <body>
+    <header class="app-header">
+      <a class="brand" href="/call.html" aria-label="LVS Meet home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="6" width="12" height="12" rx="3"
+              fill="currentColor" />
+            <path d="m16 10 5-3v10l-5-3z" fill="currentColor" />
+          </svg>
+        </span>
+        <strong>LVS <span>Meet</span></strong>
+      </a>
+
+      <span id="status" class="connection-status">Sign in to start</span>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar">
+        <div class="sidebar-intro">
+          <p class="eyebrow">A LITTLE CLOSER</p>
+          <h1>Good to see you.</h1>
+          <p>Your next conversation starts here.</p>
+        </div>
+
+        <section class="card">
+          <div class="section-heading">
+            <span class="step">01</span>
+            <h2>Your account</h2>
+          </div>
+
+          <form id="auth">
+            <label for="name">
+              Name <span class="optional">for registration</span>
+            </label>
+            <input id="name" autocomplete="name"
+              placeholder="Your name" maxlength="80" />
+
+            <label for="email">Email address</label>
+            <input id="email" type="email" autocomplete="username"
+              placeholder="you@example.com" required />
+
+            <label for="password">Password</label>
+            <input id="password" type="password"
+              autocomplete="current-password"
+              placeholder="At least 10 characters" minlength="10" required />
+
+            <div class="actions">
+              <button id="login" type="submit">Sign in</button>
+              <button id="register" type="button" class="secondary">
+                Create account
+              </button>
+            </div>
+          </form>
+
+          <p id="account" class="account-name"></p>
+          <button id="logout" type="button" class="secondary" hidden>
+            Sign out
+          </button>
+        </section>
+
+        <section class="card">
+          <div class="section-heading">
+            <span class="step">02</span>
+            <h2>Your meeting</h2>
+          </div>
+
+          <label for="room-name">Start something new</label>
+          <input id="room-name" placeholder="Meeting name"
+            value="Team catch-up" minlength="2" maxlength="100" />
+
+          <button id="create" class="wide" type="button" disabled>
+            Create meeting
+          </button>
+
+          <div class="divider"><span>or join a conversation</span></div>
+
+          <label for="room-id">Room ID</label>
+          <input id="room-id" placeholder="Paste your room ID"
+            spellcheck="false" autocomplete="off" />
+
+          <button id="join" type="button" class="secondary wide" disabled>
+            Join meeting
+          </button>
+
+          <label class="check">
+            <input id="camera-choice" type="checkbox" checked />
+            <span>Join with camera on</span>
+          </label>
+
+          <p class="small">
+            Your microphone starts muted. Turn it on when you’re ready.
+          </p>
+        </section>
+
+        <p class="sidebar-note">More faces. Better conversations.</p>
+      </aside>
+
+      <section class="meeting" aria-label="Video meeting">
+        <div class="meeting-header">
+          <div class="meeting-heading">
+            <p class="eyebrow">YOUR MEETING SPACE</p>
+            <h2 id="room-title">Ready when you are.</h2>
+          </div>
+          <span id="count" class="count">0 connected</span>
+        </div>
+
+        <div id="error" role="alert" hidden></div>
+
+        <div id="videos" aria-label="Participants">
+          <div id="empty">
+            <div class="empty-art" aria-hidden="true">
+              <span class="empty-orbit"></span>
+              <svg viewBox="0 0 64 64" fill="none">
+                <rect x="9" y="18" width="30" height="28"
+                  rx="8" stroke="currentColor" stroke-width="3" />
+                <path d="m40 27 14-8v26l-14-8"
+                  stroke="currentColor" stroke-width="3"
+                  stroke-linejoin="round" />
+              </svg>
+            </div>
+            <p class="eyebrow">MAKE ROOM FOR CONNECTION</p>
+            <h3>A familiar face.<br />A fresh conversation.</h3>
+            <p>Create a meeting or enter a room ID.<br />
+              Your people will appear right here.</p>
+          </div>
+        </div>
+
+        <div class="meeting-bottom">
+          <p id="hint" class="meeting-hint" role="status">
+            Get comfortable. Use headphones for clearer sound.
+          </p>
+
+          <div class="toolbar" role="group" aria-label="Meeting controls">
+            <button id="mic" class="control" type="button"
+              aria-label="Unmute microphone" title="Unmute microphone"
+              disabled>Unmute microphone</button>
+
+            <button id="camera" class="control" type="button"
+              aria-label="Turn camera on" title="Turn camera on"
+              disabled>Turn camera on</button>
+
+            <span class="toolbar-divider" aria-hidden="true"></span>
+
+            <button id="sound" class="control" type="button"
+              aria-label="Enable sound" title="Enable sound"
+              disabled>Enable sound</button>
+
+            <button id="copy" class="control" type="button"
+              aria-label="Copy room ID" title="Copy room ID"
+              disabled>Copy room ID</button>
+
+            <button id="leave" class="control hangup" type="button"
+              aria-label="Leave meeting" title="Leave meeting"
+              disabled>Leave meeting</button>
+
+            <button id="end" class="end-meeting" type="button" hidden>
+              End for everyone
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <details class="diagnostics">
+        <summary>Connection details</summary>
+        <pre id="log"></pre>
+      </details>
+    </main>
+
+    <script src="/call.js?v=3" defer></script>
+  </body>
+</html>
