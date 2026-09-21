@@ -35,17 +35,48 @@ export async function createRealtime(server: HttpServer) {
   const pub = makeRedis();
   const sub = makeRedis();
 
-  await Promise.all([pub.connect(), sub.connect()]);
+  try {
+    await Promise.all([pub.connect(), sub.connect()]);
+  } catch (error) {
+    pub.disconnect();
+    sub.disconnect();
+    throw error;
+  }
+
+  let closing = false;
+  let closePromise: Promise<void> | undefined;
+
+  const backgroundTasks = new Set<Promise<void>>();
+  const backgroundErrors: unknown[] = [];
+
+  function trackBackground(
+    task: Promise<unknown>,
+    message: string,
+  ): void {
+    const tracked = task
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        if (closing) backgroundErrors.push(error);
+        logger.warn({ err: error }, message);
+      });
+
+    backgroundTasks.add(tracked);
+
+    void tracked.then(() => {
+      backgroundTasks.delete(tracked);
+    });
+  }
 
   const io = new Server(server, {
     cors: { origin: origins },
     transports: ["websocket"],
     maxHttpBufferSize: 16384,
+
     allowRequest: (req, callback) => {
-      callback(
-        null,
-        !req.headers.origin || origins.includes(req.headers.origin),
-      );
+      const allowedOrigin =
+        !req.headers.origin || origins.includes(req.headers.origin);
+
+      callback(null, !closing && allowedOrigin);
     },
   });
 
@@ -59,40 +90,58 @@ export async function createRealtime(server: HttpServer) {
       .select("_id")
       .lean();
 
-    if (rooms.length) {
-      io.to(rooms.map((room) => channel(String(room._id)))).emit(
-        "user:presence",
-        {
-          userId,
-          online,
-          at: new Date().toISOString(),
-        },
-      );
-    }
+    if (!rooms.length) return;
+
+    io.to(rooms.map((room) => channel(String(room._id)))).emit(
+      "user:presence",
+      {
+        userId,
+        online,
+        at: new Date().toISOString(),
+      },
+    );
   }
 
-  // Authentication applies to room events and native WebRTC signaling.
-  io.use(async (socket, next) => {
-    try {
-      const token = socket.handshake.auth.token;
+  io.use((socket, next) => {
+    trackBackground(
+      (async () => {
+        try {
+          if (closing) {
+            next(new Error("Server is shutting down"));
+            return;
+          }
 
-      if (typeof token !== "string") {
-        throw new AppError(401, "UNAUTHORIZED", "Token required");
-      }
+          const token = socket.handshake.auth.token;
 
-      const claims = await verifyToken(token);
+          if (typeof token !== "string") {
+            throw new AppError(401, "UNAUTHORIZED", "Token required");
+          }
 
-      if (!(await User.exists({ _id: claims.userId }))) {
-        throw new AppError(401, "UNAUTHORIZED", "User does not exist");
-      }
+          const claims = await verifyToken(token);
 
-      await consume(`socket-connect:${claims.userId}`, 60);
+          if (!(await User.exists({ _id: claims.userId }))) {
+            throw new AppError(
+              401,
+              "UNAUTHORIZED",
+              "User does not exist",
+            );
+          }
 
-      socket.data = claims;
-      next();
-    } catch {
-      next(new Error("Unauthorized or rate limited"));
-    }
+          await consume(`socket-connect:${claims.userId}`, 60);
+
+          if (closing) {
+            next(new Error("Server is shutting down"));
+            return;
+          }
+
+          socket.data = claims;
+          next();
+        } catch {
+          next(new Error("Unauthorized or rate limited"));
+        }
+      })(),
+      "Socket authentication failed",
+    );
   });
 
   installNativeCalls(io);
@@ -105,6 +154,17 @@ export async function createRealtime(server: HttpServer) {
     let pendingCommands = 0;
 
     const run = (fn: () => Promise<unknown>, ack?: Ack) => {
+      if (closing || !socket.connected) {
+        ack?.({
+          success: false,
+          error: {
+            code: "SERVER_CLOSING",
+            message: "Connection closing. Reconnect shortly.",
+          },
+        });
+        return;
+      }
+
       if (pendingCommands >= 40) {
         ack?.({
           success: false,
@@ -120,11 +180,15 @@ export async function createRealtime(server: HttpServer) {
 
       commands = commands.then(async () => {
         try {
-          if (!socket.connected) return;
+          if (closing || !socket.connected) return;
 
-          // Execute even when the client does not provide an acknowledgement.
+          // Execute the operation even without an acknowledgement.
           const data = await fn();
-          ack?.({ success: true, data });
+
+          ack?.({
+            success: true,
+            data,
+          });
         } catch (error) {
           const failure =
             error instanceof AppError
@@ -148,10 +212,13 @@ export async function createRealtime(server: HttpServer) {
       });
     };
 
-    void socket.join(userChannel);
+    trackBackground(
+      Promise.resolve(socket.join(userChannel)),
+      "User channel subscription failed",
+    );
 
     const heartbeat = async () => {
-      if (!socket.connected) return;
+      if (closing || !socket.connected) return;
 
       try {
         if (await touchPresence(userId, socket.id)) {
@@ -166,6 +233,7 @@ export async function createRealtime(server: HttpServer) {
     let pulse = heartbeat();
 
     const interval = setInterval(() => {
+      if (closing || !socket.connected) return;
       pulse = pulse.then(heartbeat);
     }, 20000);
 
@@ -182,6 +250,14 @@ export async function createRealtime(server: HttpServer) {
           const { roomId } = roomEvent.parse(payload);
           const { room, changed } = await joinRoom(roomId, userId);
 
+          if (closing || !socket.connected) {
+            throw new AppError(
+              409,
+              "SOCKET_DISCONNECTED",
+              "Connection closed. Reconnect and join again.",
+            );
+          }
+
           await socket.join(channel(roomId));
 
           try {
@@ -192,7 +268,12 @@ export async function createRealtime(server: HttpServer) {
           }
 
           if (changed) {
-            broadcastMembership(io, room, "participant:joined", userId);
+            broadcastMembership(
+              io,
+              room,
+              "participant:joined",
+              userId,
+            );
           }
 
           return roomDto(room);
@@ -210,13 +291,17 @@ export async function createRealtime(server: HttpServer) {
           const { room, changed } = await leaveRoom(roomId, userId);
 
           if (changed) {
-            broadcastMembership(io, room, "participant:left", userId);
+            broadcastMembership(
+              io,
+              room,
+              "participant:left",
+              userId,
+            );
           }
 
           const nativeChannel = `native:${roomId}`;
           const userSockets = await io.in(userChannel).fetchSockets();
 
-          // Tell other callers to close connections to this user's tabs.
           for (const userSocket of userSockets) {
             if (userSocket.rooms.has(nativeChannel)) {
               io.to(nativeChannel).emit("call:peer-left", {
@@ -271,37 +356,81 @@ export async function createRealtime(server: HttpServer) {
       clearInterval(interval);
       clearTimeout(expiry);
 
-      void pulse
-        .then(() => dropPresence(userId, socket.id))
-        .then((changed) =>
-          changed ? publishPresence(userId, false) : undefined,
-        )
-        .catch((error) => {
-          logger.warn({ err: error }, "Presence cleanup failed");
-        });
+      trackBackground(
+        Promise.all([pulse, commands])
+          .then(() => dropPresence(userId, socket.id))
+          .then((changed) =>
+            changed ? publishPresence(userId, false) : undefined,
+          ),
+        "Presence cleanup failed",
+      );
     });
   });
 
   const sweeper = setInterval(() => {
-    void sweepPresence()
-      .then((ids) =>
-        Promise.all(ids.map((id) => publishPresence(id, false))),
-      )
-      .catch((error) => {
-        logger.warn({ err: error }, "Presence sweep failed");
-      });
+    if (closing) return;
+
+    trackBackground(
+      sweepPresence().then((ids) =>
+        Promise.all(
+          ids.map((userId) => publishPresence(userId, false)),
+        ),
+      ),
+      "Presence sweep failed",
+    );
   }, 15000);
 
   return {
     io,
-    close: async () => {
+
+    close: (): Promise<void> => {
+      if (closePromise) return closePromise;
+
+      closing = true;
       clearInterval(sweeper);
 
-      await new Promise<void>((resolve) => {
-        io.close(() => resolve());
-      });
+      closePromise = (async () => {
+        try {
+          // Socket disconnect handlers can still use Redis here.
+          await new Promise<void>((resolve) => {
+            io.close(() => resolve());
+          });
 
-      await Promise.all([pub.quit(), sub.quit()]);
+          // Drain presence cleanup, room commands and running sweeps.
+          while (backgroundTasks.size > 0) {
+            await Promise.all([...backgroundTasks]);
+          }
+
+          // Wait for queued adapter publish/unsubscribe commands.
+          await Promise.all([pub.ping(), sub.ping()]);
+
+          const results = await Promise.allSettled([
+            pub.quit(),
+            sub.quit(),
+          ]);
+
+          const failures: unknown[] = [...backgroundErrors];
+
+          for (const result of results) {
+            if (result.status === "rejected") {
+              failures.push(result.reason);
+            }
+          }
+
+          if (failures.length > 0) {
+            throw new AggregateError(
+              failures,
+              "Realtime shutdown failed",
+            );
+          }
+        } finally {
+          // Release connections even if graceful shutdown fails.
+          pub.disconnect();
+          sub.disconnect();
+        }
+      })();
+
+      return closePromise;
     },
   };
 }
